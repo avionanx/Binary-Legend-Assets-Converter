@@ -1,4 +1,6 @@
 #include "tmd.h"
+#include <limits>
+#include <stdexcept>
 
 TMD TMD::fromScene(const Scene& model)
 {
@@ -71,8 +73,18 @@ TMD TMD::fromScene(const Scene& model)
 		}
 	}
 
-	// TODO add logging here if there's an overflow/underflow
 	for (auto vertex : model._verts) {
+		if (
+			vertex.x * 4096 > std::numeric_limits<int16_t>::max() ||
+			vertex.y * 4096 > std::numeric_limits<int16_t>::max() ||
+			vertex.z * 4096 > std::numeric_limits<int16_t>::max() ||
+			vertex.x * 4096 < std::numeric_limits<int16_t>::min() ||
+			vertex.y * 4096 < std::numeric_limits<int16_t>::min() ||
+			vertex.z * 4096 < std::numeric_limits<int16_t>::min()
+			) {
+			spdlog::error("Vertex at ({},{},{}) is out of range", vertex.x, vertex.y, vertex.z);
+			throw std::runtime_error("Vertex out of range.");
+		}
 		Vector3<int16_t> position = { vertex.x * 4096, vertex.y * 4096, vertex.z * 4096 };
 		tmd._verts.push_back(position);
 	}

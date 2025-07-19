@@ -18,7 +18,6 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 	
-
 	tinygltf::Model model;
 	tinygltf::TinyGLTF loader;
 	std::string err;
@@ -26,6 +25,13 @@ int main(int argc, char* argv[])
 
 	bool ret = loader.LoadBinaryFromFile(&model, &err, &warn, argv[1]);
 
+	if (!err.empty()) {
+		spdlog::error(err);
+		return 1;
+	}
+	if (!warn.empty()) {
+		spdlog::warn(warn);
+	}
 	
 	Scene scene = {};
 	scene.accept(model);
