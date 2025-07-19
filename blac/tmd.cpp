@@ -29,34 +29,39 @@ TMD TMD::fromScene(const Scene& model)
 
 			for (int y = 0; y < mesh.primitiveCount; y++) {
 				TMDPrimitive primitiveData = {};
+				int indexOffset = y * 3;
 
 				primitiveData.headers = 0x37010002;//(0b10110 << 24) | mesh.vertexCount;
-				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(y)).x * 255));
-				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(y)).y * 255));
+				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(indexOffset)).x * 255));
+				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(indexOffset)).y * 255));
 				primitiveData.packetData.push_back(uint16_t(0));
-				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(y + 1)).x * 255));
-				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(y + 1)).y * 255));
+				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(indexOffset + 1)).x * 255));
+				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(indexOffset + 1)).y * 255));
 				primitiveData.packetData.push_back(uint16_t(0));
-				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(y + 2)).x * 255));
-				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(y + 2)).y * 255));
+				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(indexOffset + 2)).x * 255));
+				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(indexOffset + 2)).y * 255));
 				primitiveData.packetData.push_back(int16_t(0));
 
-				primitiveData.packetData.push_back(uint8_t(0x80));
-				primitiveData.packetData.push_back(uint8_t(0x80));
-				primitiveData.packetData.push_back(uint8_t(0x80));
-				primitiveData.packetData.push_back(uint8_t(0x0));
-				primitiveData.packetData.push_back(uint8_t(0x80));
-				primitiveData.packetData.push_back(uint8_t(0x80));
-				primitiveData.packetData.push_back(uint8_t(0x80));
-				primitiveData.packetData.push_back(uint8_t(0x0));
-				primitiveData.packetData.push_back(uint8_t(0x80));
-				primitiveData.packetData.push_back(uint8_t(0x80));
-				primitiveData.packetData.push_back(uint8_t(0x80));
-				primitiveData.packetData.push_back(uint8_t(0x0));
+				if (model._vertexColors.empty()) {
+					for (int z = 0; z < 3; z++) {
+						primitiveData.packetData.push_back(uint8_t(0x80));
+						primitiveData.packetData.push_back(uint8_t(0x80));
+						primitiveData.packetData.push_back(uint8_t(0x80));
+						primitiveData.packetData.push_back(uint8_t(0x0));
+					}
+				}
+				else {
+					for (int vIndex = 0; vIndex < 3; vIndex++) {
+						primitiveData.packetData.push_back(uint8_t(model._vertexColors.at(model._indices.at(indexOffset + vIndex)).x * 255));
+						primitiveData.packetData.push_back(uint8_t(model._vertexColors.at(model._indices.at(indexOffset + vIndex)).y * 255));
+						primitiveData.packetData.push_back(uint8_t(model._vertexColors.at(model._indices.at(indexOffset + vIndex)).z * 255));
+						primitiveData.packetData.push_back(uint8_t(0x0));
+					}
+				}
 
-				primitiveData.packetData.push_back(uint16_t(model._indices.at(y)));
-				primitiveData.packetData.push_back(uint16_t(model._indices.at(y + 1)));
-				primitiveData.packetData.push_back(uint16_t(model._indices.at(y + 2)));
+				primitiveData.packetData.push_back(uint16_t(model._indices.at(indexOffset)));
+				primitiveData.packetData.push_back(uint16_t(model._indices.at(indexOffset + 1)));
+				primitiveData.packetData.push_back(uint16_t(model._indices.at(indexOffset + 2)));
 
 				primitiveData.packetData.push_back(uint16_t(0));
 				tmd._primitives.push_back(primitiveData);
