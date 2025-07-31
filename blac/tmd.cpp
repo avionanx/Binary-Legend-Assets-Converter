@@ -2,7 +2,7 @@
 #include <limits>
 #include <stdexcept>
 
-TMD TMD::fromScene(const Scene& model)
+TMD TMD::fromScene(const Scene& scene)
 {
 	TMD tmd = {};
 	tmd._filePtr = 0xc;
@@ -10,88 +10,112 @@ TMD TMD::fromScene(const Scene& model)
 	tmd._subFilePtr2 = 0x0;
 	tmd._tmdId = 0x41;
 	tmd._flags = 0x0;
-	tmd._nobjs = model._meshInfos.size();
-	{
-		int vertexCount = 0;
-		int normalCount = 0;
-		for (int i = 0; i < model._meshInfos.size(); i++) {
-			const MeshInfo& mesh = model._meshInfos[i];
+	tmd._nobjs = scene._meshes.size();
 
-			TMDObjectTable entry = {};
-			entry._nVerts = mesh.vertexCount;
-			entry._nNormals = mesh.normalCount;
-			entry._nPrimitives = mesh.primitiveCount;
+	for (auto& mesh : scene._meshes) {
+		for (auto& vertex : mesh._verts) {
+			if (
+				vertex.x * 4096 > std::numeric_limits<int16_t>::max() ||
+				vertex.y * 4096 > std::numeric_limits<int16_t>::max() ||
+				vertex.z * 4096 > std::numeric_limits<int16_t>::max() ||
+				vertex.x * 4096 < std::numeric_limits<int16_t>::min() ||
+				vertex.y * 4096 < std::numeric_limits<int16_t>::min() ||
+				vertex.z * 4096 < std::numeric_limits<int16_t>::min()
+				) {
+				spdlog::error("Vertex at ({},{},{}) is out of range", vertex.x, vertex.y, vertex.z);
+				throw std::runtime_error("Vertex out of range.");
+			}
+			Vector3<int16_t> position = { vertex.x * 4096, vertex.y * 4096, vertex.z * 4096 };
+			tmd._verts.push_back(position);
+		}
+		for (auto& normal : mesh._normals) {
+			Vector3<int16_t> normalVector = { normal.x * 4096, normal.y * 4096, normal.z * 4096 };
+			tmd._normals.push_back(normalVector);
+		}
+	}
 
-			entry._pVerts = model._meshInfos.size() * 0x1c + vertexCount * 0x8;
-			entry._pNormals = model._meshInfos.size() * 0x1c + model._verts.size() * 0x8 + normalCount * 0x4;
-			entry._pPrimitives = model._meshInfos.size() * 0x1c + model._verts.size() * 0x8 + model._normals.size() * 0x8 + i * 32;
+	int vertexCount = 0;
+	int normalCount = 0;
+	for (int i = 0; i < scene._meshes.size(); i++) {
+		const Mesh mesh = scene._meshes.at(i);
 
-			vertexCount += mesh.vertexCount;
-			normalCount += mesh.normalCount;
+		TMDObjectTable entry = {};
+		entry._nVerts = mesh._verts.size();
+		entry._nNormals = mesh._normals.size();
+		entry._nPrimitives = mesh._indices.size() / 3;
 
-			for (int y = 0; y < mesh.primitiveCount; y++) {
-				TMDPrimitive primitiveData = {};
-				int indexOffset = y * 3;
+		entry._pVerts = scene._meshes.size() * 0x1c + vertexCount * 0x8;
+		entry._pNormals = scene._meshes.size() * 0x1c + mesh._verts.size() * 0x8 + normalCount * 0x4;
+		if (mesh.textured) {
+			entry._pPrimitives =
+				scene._meshes.size() * 0x1c +
+				tmd._verts.size() * 0x8 +
+				tmd._normals.size() * 0x8 +
+				i * 32;
+		}
+		else {
+			entry._pPrimitives =
+				scene._meshes.size() * 0x1c +
+				tmd._verts.size() * 0x8 +
+				tmd._normals.size() * 0x8 +
+				i * 24;
+		}
 
-				primitiveData.headers = 0x37010002;//(0b10110 << 24) | mesh.vertexCount;
-				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(indexOffset)).x * 255));
-				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(indexOffset)).y * 255));
+		vertexCount += mesh._verts.size();
+		normalCount += mesh._normals.size();
+
+		for (int index = 0; index < mesh._indices.size() / 3; index += 3) {
+			TMDPrimitive primitiveData = {};
+
+			primitiveData.headers = 0x30040004;// (0b110010) << 24 | mesh.primitiveCount;//(0b10110 << 24) | mesh.vertexCount;
+			if (mesh.textured) {
+				primitiveData.packetData.push_back(uint8_t(mesh._uvs.at(mesh._indices.at(index)).x * 255));
+				primitiveData.packetData.push_back(uint8_t(mesh._uvs.at(mesh._indices.at(index)).y * 255));
 				primitiveData.packetData.push_back(uint16_t(0));
-				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(indexOffset + 1)).x * 255));
-				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(indexOffset + 1)).y * 255));
+				primitiveData.packetData.push_back(uint8_t(mesh._uvs.at(mesh._indices.at(index + 1)).x * 255));
+				primitiveData.packetData.push_back(uint8_t(mesh._uvs.at(mesh._indices.at(index + 1)).y * 255));
 				primitiveData.packetData.push_back(uint16_t(0));
-				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(indexOffset + 2)).x * 255));
-				primitiveData.packetData.push_back(uint8_t(model._uvs.at(model._indices.at(indexOffset + 2)).y * 255));
+				primitiveData.packetData.push_back(uint8_t(mesh._uvs.at(mesh._indices.at(index + 2)).x * 255));
+				primitiveData.packetData.push_back(uint8_t(mesh._uvs.at(mesh._indices.at(index + 2)).y * 255));
 				primitiveData.packetData.push_back(int16_t(0));
-
-				if (model._vertexColors.empty()) {
-					for (int z = 0; z < 3; z++) {
-						primitiveData.packetData.push_back(uint8_t(0x80));
-						primitiveData.packetData.push_back(uint8_t(0x80));
-						primitiveData.packetData.push_back(uint8_t(0x80));
-						primitiveData.packetData.push_back(uint8_t(0x0));
-					}
+			}
+			if (mesh._vertexColors.empty()) {
+				for (int z = 0; z < 3; z++) {
+					primitiveData.packetData.push_back(uint8_t(0x80));
+					primitiveData.packetData.push_back(uint8_t(0x80));
+					primitiveData.packetData.push_back(uint8_t(0x80));
+					primitiveData.packetData.push_back(uint8_t(0x0));
 				}
-				else {
-					for (int vIndex = 0; vIndex < 3; vIndex++) {
-						primitiveData.packetData.push_back(uint8_t(model._vertexColors.at(model._indices.at(indexOffset + vIndex)).x * 255));
-						primitiveData.packetData.push_back(uint8_t(model._vertexColors.at(model._indices.at(indexOffset + vIndex)).y * 255));
-						primitiveData.packetData.push_back(uint8_t(model._vertexColors.at(model._indices.at(indexOffset + vIndex)).z * 255));
-						primitiveData.packetData.push_back(uint8_t(0x0));
-					}
+			}
+			else {
+				for (int vIndex = 0; vIndex < 3; vIndex++) {
+					primitiveData.packetData.push_back(uint8_t(mesh._vertexColors.at(mesh._indices.at(index + vIndex)).x * 255));
+					primitiveData.packetData.push_back(uint8_t(mesh._vertexColors.at(mesh._indices.at(index + vIndex)).y * 255));
+					primitiveData.packetData.push_back(uint8_t(mesh._vertexColors.at(mesh._indices.at(index + vIndex)).z * 255));
+					primitiveData.packetData.push_back(uint8_t(0x0));
 				}
-
-				primitiveData.packetData.push_back(uint16_t(model._indices.at(indexOffset)));
-				primitiveData.packetData.push_back(uint16_t(model._indices.at(indexOffset + 1)));
-				primitiveData.packetData.push_back(uint16_t(model._indices.at(indexOffset + 2)));
-
-				primitiveData.packetData.push_back(uint16_t(0));
-				tmd._primitives.push_back(primitiveData);
 			}
 
-			tmd._objectTable.push_back(entry);
+			if (mesh.textured) {
+				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index)));
+				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 1)));
+				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 2)));
+				primitiveData.packetData.push_back(uint16_t(0)); // padding
+			}
+			else {
+				primitiveData.packetData.push_back(uint16_t(mesh._normals.at(mesh._indices.at(index)).x * 4096));
+				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index)));
+				primitiveData.packetData.push_back(uint16_t(mesh._normals.at(mesh._indices.at(index + 1)).y * 4096));
+				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 1)));
+				primitiveData.packetData.push_back(uint16_t(mesh._normals.at(mesh._indices.at(index + 2)).z * 4096));
+				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 2)));
+			}
+			tmd._primitives.push_back(primitiveData);
 		}
+
+		tmd._objectTable.push_back(entry);
 	}
 
-	for (auto vertex : model._verts) {
-		if (
-			vertex.x * 4096 > std::numeric_limits<int16_t>::max() ||
-			vertex.y * 4096 > std::numeric_limits<int16_t>::max() ||
-			vertex.z * 4096 > std::numeric_limits<int16_t>::max() ||
-			vertex.x * 4096 < std::numeric_limits<int16_t>::min() ||
-			vertex.y * 4096 < std::numeric_limits<int16_t>::min() ||
-			vertex.z * 4096 < std::numeric_limits<int16_t>::min()
-			) {
-			spdlog::error("Vertex at ({},{},{}) is out of range", vertex.x, vertex.y, vertex.z);
-			throw std::runtime_error("Vertex out of range.");
-		}
-		Vector3<int16_t> position = { vertex.x * 4096, vertex.y * 4096, vertex.z * 4096 };
-		tmd._verts.push_back(position);
-	}
-	for (auto normal : model._normals) {
-		Vector3<int16_t> surfaceNormal = { normal.x * 4096, normal.y * 4096, normal.z * 4096 };
-		tmd._normals.push_back(surfaceNormal);
-	}
 	return tmd;
 }
 

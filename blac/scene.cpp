@@ -12,14 +12,14 @@ void Scene::accept(tinygltf::Model &model) {
 	for (const auto& mesh : model.meshes) {
 		spdlog::info("Parsing mesh {}", mesh.name);
 
-		MeshInfo meshInfo = {};
 
 		uint32_t primitiveCount = 0;
 		uint32_t vertexCount = 0;
 		uint32_t normalCount = 0;
 
-
 		for (const auto& primitive : mesh.primitives) {
+
+			Mesh mesh = {};
 			if (primitive.attributes.find("POSITION") != primitive.attributes.end()) {
 				const tinygltf::Accessor& accessor = model.accessors[primitive.attributes.at("POSITION")];
 				const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
@@ -28,7 +28,17 @@ void Scene::accept(tinygltf::Model &model) {
 
 				vertexCount += accessor.count;
 				for (size_t i = 0; i < accessor.count; ++i) {
-					this->_verts.push_back(Vector3{ (positions[i * 3 + 0]), (positions[i * 3 + 1]), (positions[i * 3 + 2]) });
+					mesh._verts.push_back(Vector3{ (positions[i * 3 + 0]), (positions[i * 3 + 1]), (positions[i * 3 + 2]) });
+				}
+			}
+			if (!mesh.textured && primitive.attributes.find("NORMAL") != primitive.attributes.end()) {
+				const tinygltf::Accessor& accessor = model.accessors[primitive.attributes.at("NORMAL")];
+				const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];
+				const tinygltf::Buffer& buffer = model.buffers[view.buffer];
+				const float* normals = reinterpret_cast<const float*>(&buffer.data[view.byteOffset + accessor.byteOffset]);
+
+				for (size_t i = 0; i < accessor.count; ++i) {
+					mesh._normals.push_back({ normals[i * 3 + 0] , normals[i * 3 + 1] , normals[i * 3 + 2] });
 				}
 			}
 			if (primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end()) {
@@ -41,7 +51,7 @@ void Scene::accept(tinygltf::Model &model) {
 				for (size_t i = 0; i < accessor.count; ++i) {
 					float u = uvs[i * 2 + 0];
 					float v = uvs[i * 2 + 1];
-					this->_uvs.push_back({ u, v });
+					mesh._uvs.push_back({ u, v });
 				}
 			}
 			if (primitive.attributes.find("COLOR_0") != primitive.attributes.end()) {
@@ -54,11 +64,24 @@ void Scene::accept(tinygltf::Model &model) {
 				const float* colors = reinterpret_cast<const float*>(&buffer.data[view.byteOffset + accessor.byteOffset]);
 
 				for (size_t i = 0; i < accessor.count; ++i) {
-					float r = colors[i * numComponents + 0];
-					float g = colors[i * numComponents + 1];
-					float b = colors[i * numComponents + 2];
-					//float a = (numComponents == 4) ? colors[i * numComponents + 3] : 1.0f;
-					this->_vertexColors.push_back({ r, g, b });
+					float color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+					for (size_t j = 0; j < numComponents; ++j) {
+						switch (accessor.componentType) {
+						case TINYGLTF_COMPONENT_TYPE_FLOAT:
+							color[j] = reinterpret_cast<const float*>(colors)[i * numComponents + j];
+							break;
+
+						case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+							color[j] = reinterpret_cast<const uint8_t*>(colors)[i * numComponents + j] / 255.0f;
+							break;
+
+						case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+							color[j] = reinterpret_cast<const uint16_t*>(colors)[i * numComponents + j] / 65535.0f;
+							break;
+						}
+					}
+					mesh._vertexColors.push_back({ color[0], color[1], color[2] });
 				}
 			}
 			/*
@@ -97,23 +120,22 @@ void Scene::accept(tinygltf::Model &model) {
 						index2 = static_cast<const uint32_t*>(static_cast<const void*>(indexData))[i + 2];
 						break;
 					}
-					this->_indices.push_back(index0);
-					this->_indices.push_back(index1);
-					this->_indices.push_back(index2);
+					mesh._indices.push_back(index0);
+					mesh._indices.push_back(index1);
+					mesh._indices.push_back(index2);
 
-					const Vector3<float> edge0 = this->_verts.at(index1).sub(this->_verts.at(index0));
-					const Vector3<float> edge1 = this->_verts.at(index2).sub(this->_verts.at(index0));
+					if(mesh.textured) {
+						const Vector3<float> edge0 = mesh._verts.at(index1).sub(mesh._verts.at(index0));
+						const Vector3<float> edge1 = mesh._verts.at(index2).sub(mesh._verts.at(index0));
 
-					const Vector3<float> primitiveNormal = edge0.cross(edge1).normalize();
+						const Vector3<float> primitiveNormal = edge0.cross(edge1).normalize();
 
-					this->_normals.push_back(primitiveNormal);
+						mesh._normals.push_back(primitiveNormal);
+					}
 				}
 			}
 
-			meshInfo.vertexCount = vertexCount;
-			meshInfo.normalCount = normalCount;
-			meshInfo.primitiveCount = primitiveCount;
-			this->_meshInfos.push_back(meshInfo);
+			this->_meshes.push_back(mesh);
 		}
 	}
 	spdlog::info("Parsing complete");

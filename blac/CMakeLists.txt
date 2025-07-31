@@ -3,7 +3,7 @@
 #
 
 # Add source to this project's executable.
-add_executable (blac "blac.cpp"  "filedata.h" "filedata.cpp" "scene.h" "tmdobjecttable.h" "scene.cpp" "tmdprimitive.h" "tmd.h" "tmd.cpp" "meshinfo.h"  "uv.h")
+add_executable (blac "blac.cpp"  "filedata.h" "filedata.cpp" "scene.h" "tmdobjecttable.h" "scene.cpp" "tmdprimitive.h" "tmd.h" "tmd.cpp"   "uv.h" "mesh.h")
 
 target_link_libraries("blac" PRIVATE spdlog::spdlog)
 
