@@ -64,10 +64,10 @@ TMD TMD::fromScene(const Scene& scene)
 		vertexCount += mesh._verts.size();
 		normalCount += mesh._normals.size();
 
-		for (int index = 0; index < mesh._indices.size() / 3; index += 3) {
+		for (int index = 0; index < mesh._indices.size(); index += 3) {
 			TMDPrimitive primitiveData = {};
 
-			primitiveData.headers = 0x30040004;// (0b110010) << 24 | mesh.primitiveCount;//(0b10110 << 24) | mesh.vertexCount;
+			primitiveData.headers = 0x30040002;// (0b110010) << 24 | mesh.primitiveCount;//(0b10110 << 24) | mesh.vertexCount;
 			if (mesh.textured) {
 				primitiveData.packetData.push_back(uint8_t(mesh._uvs.at(mesh._indices.at(index)).x * 255));
 				primitiveData.packetData.push_back(uint8_t(mesh._uvs.at(mesh._indices.at(index)).y * 255));
