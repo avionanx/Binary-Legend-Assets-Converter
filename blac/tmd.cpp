@@ -103,11 +103,11 @@ TMD TMD::fromScene(const Scene& scene)
 				primitiveData.packetData.push_back(uint16_t(0)); // padding
 			}
 			else {
-				primitiveData.packetData.push_back(uint16_t(mesh._normals.at(mesh._indices.at(index)).x * 4096));
 				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index)));
-				primitiveData.packetData.push_back(uint16_t(mesh._normals.at(mesh._indices.at(index + 1)).y * 4096));
+				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index)));
 				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 1)));
-				primitiveData.packetData.push_back(uint16_t(mesh._normals.at(mesh._indices.at(index + 2)).z * 4096));
+				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 1)));
+				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 2)));
 				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 2)));
 			}
 			tmd._primitives.push_back(primitiveData);
