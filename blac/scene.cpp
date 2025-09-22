@@ -18,8 +18,19 @@ void Scene::accept(tinygltf::Model &model) {
 		uint32_t normalCount = 0;
 
 		for (const auto& primitive : mesh.primitives) {
-
 			Mesh mesh = {};
+
+			if (!model.materials.empty()) {
+				std::string alphaMode = "OPAQUE";
+				auto it = model.materials.at(0).additionalValues.find("alphaMode");
+				if (it != model.materials.at(0).additionalValues.end()) {
+					alphaMode = it->second.string_value;
+				}
+				if (alphaMode == "BLEND") {
+					mesh.translucent = true;
+				}
+			}
+			
 			if (primitive.attributes.find("POSITION") != primitive.attributes.end()) {
 				const tinygltf::Accessor& accessor = model.accessors[primitive.attributes.at("POSITION")];
 				const tinygltf::BufferView& view = model.bufferViews[accessor.bufferView];

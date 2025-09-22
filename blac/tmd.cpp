@@ -68,6 +68,10 @@ TMD TMD::fromScene(const Scene& scene)
 			TMDPrimitive primitiveData = {};
 
 			primitiveData.headers = 0x30040002;// (0b110010) << 24 | mesh.primitiveCount;//(0b10110 << 24) | mesh.vertexCount;
+			if (mesh.translucent) {
+				primitiveData.headers |= (0b10 << 24);
+			}
+
 			if (mesh.textured) {
 				primitiveData.packetData.push_back(uint8_t(mesh._uvs.at(mesh._indices.at(index)).x * 255));
 				primitiveData.packetData.push_back(uint8_t(mesh._uvs.at(mesh._indices.at(index)).y * 255));
@@ -97,18 +101,18 @@ TMD TMD::fromScene(const Scene& scene)
 			}
 
 			if (mesh.textured) {
-				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index)));
-				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 1)));
 				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 2)));
+				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 1)));
+				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index)));
 				primitiveData.packetData.push_back(uint16_t(0)); // padding
 			}
 			else {
-				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index)));
-				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index)));
-				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 1)));
-				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 1)));
 				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 2)));
 				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 2)));
+				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 1)));
+				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index + 1)));
+				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index)));
+				primitiveData.packetData.push_back(uint16_t(mesh._indices.at(index)));
 			}
 			tmd._primitives.push_back(primitiveData);
 		}

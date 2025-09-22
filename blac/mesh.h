@@ -16,5 +16,6 @@ public:
 
 	std::vector<int> _indices;
 
+	bool translucent = false;
 	bool textured = false;
 };
